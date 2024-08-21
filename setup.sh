@@ -9,6 +9,8 @@ echo "Activating virtual environment..."
 source venv/bin/activate
 
 # Step 3: Install requirements.txt in the virtual environment
+echo "Upgrading pip to the latest version..."
+pip install --upgrade pip
 echo "Installing packages from requirements.txt..."
 pip install -r requirements.txt
 
@@ -29,7 +31,10 @@ python manage.py migrate
 
 # Step 7: Create a Django superuser with username 'admin' and password 'admin@1'
 echo "Creating Django superuser..."
-echo "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.filter(username='admin').exists() or User.objects.create_superuser('admin', 'admin@example.com', 'admin@1')" | python manage.py shell
+export DJANGO_SUPERUSER_USERNAME=admin
+export DJANGO_SUPERUSER_EMAIL=admin@example.com
+export DJANGO_SUPERUSER_PASSWORD=admin@1
+python manage.py createsuperuser --noinput
 
 # Step 8: Inform the user to start the Django server
 echo "Setup complete! You can now start the Django server with the following command:"
