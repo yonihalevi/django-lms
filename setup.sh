@@ -1,9 +1,13 @@
 #!/bin/bash
 
-# Variables
-DB_NAME="dj_lms"
-DB_USER="postgres"
-DB_PASSWORD="example"
+# Variables taken from .env file 
+if [ -f ".env.example" ]; then
+  cp .env.example .env
+  echo ".env file created from .env.example"
+  source .env
+else
+  echo "Warning: .env.example file not found."
+fi
 
 # Export variables for Docker Compose and Django
 export DB_NAME=$DB_NAME
@@ -12,6 +16,10 @@ export DB_PASSWORD=$DB_PASSWORD
 export DJANGO_SUPERUSER_USERNAME=admin
 export DJANGO_SUPERUSER_EMAIL=admin@example.com
 export DJANGO_SUPERUSER_PASSWORD=admin@1
+
+echo $DB_NAME
+echo $DB_USER
+echo $DB_PASSWORD
 
 # Step 1: Create a Python 3.8 virtual environment named 'venv'
 if [ ! -d "venv" ]; then
@@ -47,13 +55,6 @@ echo "Creating database $DB_NAME..."
 docker exec -it $(docker-compose ps -q db) psql -U $DB_USER -c "CREATE DATABASE $DB_NAME;"
 
 # Step 6: Run Django migrations
-if [ -f ".env.example" ]; then
-  cp .env.example .env
-  echo ".env file created from .env.example"
-else
-  echo "Warning: .env.example file not found."
-fi
-
 echo "Running Django migrations..."
 python manage.py migrate
 
