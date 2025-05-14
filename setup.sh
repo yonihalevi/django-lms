@@ -1,69 +1,42 @@
 #!/bin/bash
 
-# Variables taken from .env file 
-if [ -f ".env.example" ]; then
-  cp .env.example .env
-  echo ".env file created from .env.example"
-  source .env
-else
-  echo "Warning: .env.example file not found."
-fi
+# Step 1: Switch Docker to use Minikube's Docker daemon
+echo "Switching Docker CLI to Minikube..."
+eval $(minikube docker-env)
 
-# Export variables for Docker Compose and Django
-export DB_NAME=$DB_NAME
-export DB_USER=$DB_USER
-export DB_PASSWORD=$DB_PASSWORD
-export DJANGO_SUPERUSER_USERNAME=admin
-export DJANGO_SUPERUSER_EMAIL=admin@example.com
-export DJANGO_SUPERUSER_PASSWORD=admin@1
+# Optional: Build Docker image in Minikube if needed
+# echo "Building Django LMS Docker image..."
+# docker build -t django-lms:local .
 
-echo $DB_NAME
-echo $DB_USER
-echo $DB_PASSWORD
+# Step 2: Apply K8s resources
+echo "Applying Kubernetes manifests..."
+kubectl apply -f k8s/db-secret.yaml
+# kubectl apply -f k8s/django-secret.yaml
+# kubectl apply -f k8s/django-config.yaml
+kubectl apply -f k8s/postgres-deployment.yaml
+kubectl apply -f k8s/redis-deployment.yaml
+kubectl apply -f k8s/adminer-deployment.yaml
+# kubectl apply -f k8s/django-deployment.yaml
 
-# Step 1: Create a Python 3.8 virtual environment named 'venv'
-if [ ! -d "venv" ]; then
-  echo "Creating Python 3.8 virtual environment..."
-  python3.8 -m venv venv
-else
-  echo "Virtual environment already exists."
-fi
+# Step 3: Wait for resources to be ready
+echo "Waiting for PostgreSQL pod to be ready..."
+kubectl wait --for=condition=ready pod -l app=postgres --timeout=120s || exit 1
 
-# Step 2: Activate the virtual environment
-echo "Activating virtual environment..."
-source venv/bin/activate
+echo "Waiting for Redis pod to be ready..."
+kubectl wait --for=condition=ready pod -l app=redis --timeout=120s || exit 1
 
-# Step 3: Install requirements.txt in the virtual environment
-echo "Upgrading pip to the latest version..."
-pip install --upgrade pip
+echo "Waiting for Adminer pod to be ready..."
+kubectl wait --for=condition=ready pod -l app=adminer --timeout=120s || exit 1
 
-echo "Installing packages from requirements.txt..."
-pip install -r requirements.txt
+# Step 4: Port-forward services in background
+echo "Port forwarding PostgreSQL (5432), Redis (6379), and Adminer (8080)..."
+kubectl port-forward svc/postgres 5432:5432 &
+kubectl port-forward svc/redis 6379:6379 &
+kubectl port-forward svc/adminer 8080:8080 &
 
-# Step 4: Run docker-compose up -d
-echo "Starting Docker containers..."
-docker-compose up -d
+echo "All services are running and forwarded!"
+echo "You can access Adminer at http://localhost:8080"
+echo "Press Ctrl+C to stop port forwarding."
 
-# Step 5: Wait for PostgreSQL to start and create a database
-echo "Waiting for PostgreSQL to start..."
-until docker exec -it $(docker-compose ps -q db) psql -U $DB_USER -c '\q' 2>/dev/null; do
-  >&2 echo "PostgreSQL is unavailable - sleeping"
-  sleep 3
-done
-
-echo "Creating database $DB_NAME..."
-docker exec -it $(docker-compose ps -q db) psql -U $DB_USER -c "CREATE DATABASE $DB_NAME;"
-
-# Step 6: Run Django migrations
-echo "Running Django migrations..."
-python manage.py migrate
-
-# Step 7: Create a Django superuser
-echo "Creating Django superuser..."
-python manage.py createsuperuser --noinput || {
-  echo "Failed to create superuser. It may already exist."
-}
-
-# Step 8: Inform the user to start the Django server
-echo "Setup complete! You can now start the Django server with the following command:"
-echo "source venv/bin/activate && python manage.py runserver"
+# Optional: Keep the script running
+wait

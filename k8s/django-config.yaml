@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: django-config
+data:
+  DB_NAME: "dj_lms"
+  DB_USER: "postgres"
+  DB_HOST: "postgres"
+  DB_PORT: "5432"
+  DEBUG: "True"
+  EMAIL_BACKEND: "django.core.mail.backends.console.EmailBackend"
+  EMAIL_HOST: "smtp.gmail.com"
+  EMAIL_PORT: "587"
+  EMAIL_USE_TLS: "True"
+  EMAIL_FROM_ADDRESS: "Dj LMS <youremail@example.com>"
